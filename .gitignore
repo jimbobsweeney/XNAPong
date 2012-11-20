@@ -1,0 +1,16 @@
+obj
+bin
+*.user
+*.suo
+*.orig
+output
+publish
+packages
+_ReSharper.*
+_dotCover.*
+*.Resharper
+*.Cache
+*.cachefile
+*.cache
+*.dotCover
+~$*
