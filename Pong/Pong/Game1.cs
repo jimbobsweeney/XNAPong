@@ -66,24 +66,29 @@ namespace Pong
         private bool _male1Available = true;
         private bool _countInAudible = true;
         private bool _soundEffectsAudible = true;
+        private bool _musicOn = true;
         private Screen _currentScreen;
+        private Screen _previousScreen;
         private int _winningScore = 10;
 
-        // Renderer that draws particles to screen
         private Renderer _myRenderer;
-        // Particle effect object to store the info about particle
         private ParticleEffect _blueSunEffect;
         private ParticleEffect _pinkSunEffect;
         private ParticleEffect _backgroundEffect;
         private ParticleEffect _trailEffect;
+        private ParticleEffect _leftPaddleEffect;
+        private ParticleEffect _rightPaddleEffect;
+        private Song _backgroundMusic;
 
         private enum Screen
         {
             initialMenu = 1,
-            instructions = 2,
+            instructionsFromOrdinaryMenu = 2,
             gameOnePlayer = 3,
             gameTwoPlayer = 4,
-            endMenu = 5
+            endMenu = 5,
+            instructionsFromPauseMenu = 6,
+            pauseMenu = 7
         }
 
         public Game1()
@@ -101,6 +106,8 @@ namespace Pong
             _pinkSunEffect = new ParticleEffect();
             _backgroundEffect = new ParticleEffect();
             _trailEffect = new ParticleEffect();
+            _leftPaddleEffect = new ParticleEffect();
+            _rightPaddleEffect = new ParticleEffect();
 
             _ball = new Ball(this);
             _leftPaddle = new Paddle(this, "left");
@@ -178,8 +185,29 @@ namespace Pong
             _trailEffect = Content.Load<ParticleEffect>("fireball5");
             _trailEffect.LoadContent(Content);
             _trailEffect.Initialise();
+
+            _leftPaddleEffect = Content.Load<ParticleEffect>("red_smoke");
+            _leftPaddleEffect.LoadContent(Content);
+            _leftPaddleEffect.Initialise();
+
+            _rightPaddleEffect = Content.Load<ParticleEffect>("blue_smoke");
+            _rightPaddleEffect.LoadContent(Content);
+            _rightPaddleEffect.Initialise();
+
+            _backgroundMusic = Content.Load<Song>("inception");
             
             _myRenderer.LoadContent(Content);
+
+            if (MediaPlayer.State == MediaState.Stopped)
+            {
+                MediaPlayer.Play(_backgroundMusic);
+                MediaPlayer.Volume = 0.4f;
+                MediaPlayer.IsRepeating = true;
+            }
+            else if (MediaPlayer.State == MediaState.Paused)
+            {
+                MediaPlayer.Resume();
+            }
         }
 
         /// <summary>
@@ -254,6 +282,7 @@ namespace Pong
             else if (_currentScreen == Screen.endMenu && (_leftScore == _winningScore || _rightScore == _winningScore))
             {
                 _currentScreen = Screen.endMenu;
+                FadeOutBackgroundMusic();
                 if (_winningSoundAvailable)
                 {
                     _winningSoundAvailable = false;
@@ -264,13 +293,17 @@ namespace Pong
                 _winningMessage = String.Format("{0} has won!", winningSide);
                 _winningPosition = new Vector2(GraphicsDevice.Viewport.Width/2 - 107,
                                                GraphicsDevice.Viewport.Height/2 - 100);
-                CheckMenuKeys();
+                CheckMenuKeys(1, 4);
             }
             else if (_currentScreen == Screen.initialMenu)
             {
-                CheckMenuKeys();
+                CheckMenuKeys(1, 4);
             }
-            else if (_currentScreen == Screen.instructions)
+            else if (_currentScreen == Screen.pauseMenu)
+            {
+                CheckMenuKeys(2, 4);
+            }
+            else if (_currentScreen == Screen.instructionsFromOrdinaryMenu || _currentScreen == Screen.instructionsFromPauseMenu)
             {
                 CheckForSpace();
             }
@@ -289,6 +322,8 @@ namespace Pong
             _pinkSunEffect.Update(SecondsPassed);
             _backgroundEffect.Update(SecondsPassed);
             _trailEffect.Update(SecondsPassed);
+            _leftPaddleEffect.Update(SecondsPassed);
+            _rightPaddleEffect.Update(SecondsPassed);
         }
 
         /// <summary>
@@ -314,6 +349,8 @@ namespace Pong
             _myRenderer.RenderEffect(_pinkSunEffect);
             _myRenderer.RenderEffect(_backgroundEffect);
             _myRenderer.RenderEffect(_trailEffect);
+            _myRenderer.RenderEffect(_leftPaddleEffect);
+            _myRenderer.RenderEffect(_rightPaddleEffect);
 
             base.Draw(gameTime);
         }
@@ -358,6 +395,25 @@ namespace Pong
                 _boing.Play();
                 _soundEffectsAudible = !_soundEffectsAudible;
                 _ball._soundEffectsAudible = !_ball._soundEffectsAudible;
+            }
+            if (kState.IsKeyDown(Keys.F8) && _lastKeyboardState != kState)
+            {
+                _boing.Play();
+                if (MediaPlayer.State == MediaState.Playing)
+                {
+                    _musicOn = false;
+                    MediaPlayer.Pause();
+                }
+                else
+                {
+                    _musicOn = true;
+                    MediaPlayer.Resume();
+                }
+            }
+            if (kState.IsKeyDown(Keys.Space) && _lastKeyboardState != kState)
+            {
+                _boing.Play();
+                PauseGame();
             }
             _lastKeyboardState = kState;
         }
@@ -443,6 +499,7 @@ namespace Pong
                     {
                         PlaySoundEffect(_powerUpSound, _soundEffectsAudible);
                         _rightPaddle.ChangePaddleSize();
+                        _rightPaddleEffect.Trigger(new Vector2(_rightPaddle._paddlePosition.X + _rightPaddle._paddleSprite.Width / 2, _rightPaddle._paddlePosition.Y + _rightPaddle._paddleSprite.Height / 2));
                     }
                 }
                 else
@@ -469,6 +526,7 @@ namespace Pong
                     {
                         PlaySoundEffect(_powerUpSound, _soundEffectsAudible);
                         _leftPaddle.ChangePaddleSize();
+                        _leftPaddleEffect.Trigger(new Vector2(_leftPaddle._paddlePosition.X + _leftPaddle._paddleSprite.Width / 2, _leftPaddle._paddlePosition.Y + _leftPaddle._paddleSprite.Height / 2));
                     }
                 }
                 else
@@ -535,12 +593,12 @@ namespace Pong
             }
         }
 
-        private void CheckMenuKeys()
+        private void CheckMenuKeys(int lowerLimit, int upperLimit)
         {
             KeyboardState kState = Keyboard.GetState();
             if (kState.IsKeyDown(Keys.Up) && _lastKeyboardState != kState)
             {
-                if (_optionSelected > 1)
+                if (_optionSelected > lowerLimit)
                 {
                     _optionSelected--;
                     PlaySoundEffect(_menuChange, _soundEffectsAudible);
@@ -548,31 +606,46 @@ namespace Pong
             }
             if (kState.IsKeyDown(Keys.Down) && _lastKeyboardState != kState)
             {
-                if (_optionSelected < 4)
+                if (_optionSelected < upperLimit)
                 {
                     _optionSelected++;
                     PlaySoundEffect(_menuChange, _soundEffectsAudible);
                 }
             }
-            if (kState.IsKeyDown(Keys.Enter) && _optionSelected == 1)
+            if (kState.IsKeyDown(Keys.Enter) && _optionSelected == 1 && _currentScreen != Screen.pauseMenu)
             {
                 _currentScreen = Screen.gameOnePlayer;
+                PlaySoundEffect(_menuSelect, _soundEffectsAudible);
                 StartGame();
             }
-            else if (kState.IsKeyDown(Keys.Enter) && _optionSelected == 2)
+            else if (kState.IsKeyDown(Keys.Enter) && _optionSelected == 2 && _currentScreen != Screen.pauseMenu)
             {
                 _currentScreen = Screen.gameTwoPlayer;
+                PlaySoundEffect(_menuSelect, _soundEffectsAudible);
                 StartGame();
             }
-            else if (kState.IsKeyDown(Keys.Enter) && _optionSelected == 3)
+            else if (kState.IsKeyDown(Keys.Enter) && _optionSelected == 2 && _currentScreen == Screen.pauseMenu)
+            {
+                PlaySoundEffect(_menuSelect, _soundEffectsAudible);   
+                RemovePauseMenu();
+            }
+            else if (kState.IsKeyDown(Keys.Enter) && _optionSelected == 3 && _currentScreen != Screen.pauseMenu)
             {
                 PlaySoundEffect(_menuSelect, _soundEffectsAudible);
+                _currentScreen = Screen.instructionsFromOrdinaryMenu;
+                DisplayInstructions();
+            }
+            else if (kState.IsKeyDown(Keys.Enter) && _optionSelected == 3 && _currentScreen == Screen.pauseMenu)
+            {
+                PlaySoundEffect(_menuSelect, _soundEffectsAudible);
+                _currentScreen = Screen.instructionsFromPauseMenu;
                 DisplayInstructions();
             }
             else if (kState.IsKeyDown(Keys.Enter) && _optionSelected == 4)
             {
                 PlaySoundEffect(_menuSelect, _soundEffectsAudible);
-                Thread.Sleep(200); // This put in so the sound effect doesn't get cut off.
+                FadeOutBackgroundMusic();
+                Thread.Sleep(200);
                 Environment.Exit(0);
             }
             _lastKeyboardState = kState;
@@ -589,6 +662,11 @@ namespace Pong
             _winningSoundAvailable = true;
             _leftPaddle.ResetPaddleSize();
             _rightPaddle.ResetPaddleSize();
+
+            if (MediaPlayer.State != MediaState.Playing)
+            {
+                FadeInBackgroundMusic();
+            }
         }
 
         private void PlaySoundEffect(SoundEffect sound, bool audibleBool)
@@ -601,36 +679,46 @@ namespace Pong
 
         private void DisplayInstructions()
         {
-            _currentScreen = Screen.instructions;
             _winningMessage = "Instructions";
             _menuLine1 = "Keys to use during the game:";
             _menuLine2 = "A/Z - up/down for left-hand player.";
-            _menuLine3 = "Up/Down - up/down for right-hand player.";
+            _menuLine3 = "Up/Down - up/down for right-hand player.\nDuring the game, press Space to pause.";
             _menuLine4 =
-                "F9: Toggle Sound Effects On/Off\nF10: Toggle Count In Sound Effects On/Off\nF11: Toggle Full Screen Mode On/Off";
+                "F8: Toggle Music On/Off\nF9: Toggle Sound Effects On/Off\nF10: Toggle Count In Sound Effects On/Off\nF11: Toggle Full Screen Mode On/Off";
             _menuLine5 = "Press Space to return to the main menu.";
             _winningFont = Content.Load<SpriteFont>("instructionsFont");
             _winningPosition = new Vector2(GraphicsDevice.Viewport.Width/2 - 70, GraphicsDevice.Viewport.Height/2 - 170);
             _menuLine1Position = new Vector2(GraphicsDevice.Viewport.Width/2 - 240,
-                                             GraphicsDevice.Viewport.Height/2 - 100);
+                                             GraphicsDevice.Viewport.Height/2 - 120);
             _menuLine2Position = new Vector2(GraphicsDevice.Viewport.Width/2 - 240,
-                                             GraphicsDevice.Viewport.Height/2 - 40);
-            _menuLine3Position = new Vector2(GraphicsDevice.Viewport.Width/2 - 240, GraphicsDevice.Viewport.Height/2);
+                                             GraphicsDevice.Viewport.Height/2 - 80);
+            _menuLine3Position = new Vector2(GraphicsDevice.Viewport.Width/2 - 240, GraphicsDevice.Viewport.Height/2 - 40);
             _menuLine4Position = new Vector2(GraphicsDevice.Viewport.Width/2 - 240,
                                              GraphicsDevice.Viewport.Height/2 + 40);
             _menuLine5Position = new Vector2(GraphicsDevice.Viewport.Width/2 - 240,
-                                             GraphicsDevice.Viewport.Height/2 + 160);
+                                             GraphicsDevice.Viewport.Height/2 + 200);
         }
 
         private void CheckForSpace()
         {
             KeyboardState kState = Keyboard.GetState();
-            if (kState.IsKeyDown(Keys.Space) && _lastKeyboardState != kState)
+            if (kState.IsKeyDown(Keys.Space) && _lastKeyboardState != kState &&
+                _currentScreen == Screen.instructionsFromOrdinaryMenu)
             {
                 PlaySoundEffect(_menuSelect, _soundEffectsAudible);
                 RemoveInstructions();
+                _winningFont = Content.Load<SpriteFont>("winningFont");
+                Initialize();
             }
-            _lastKeyboardState = kState;
+            if (kState.IsKeyDown(Keys.Space) && _lastKeyboardState != kState &&
+                _currentScreen == Screen.instructionsFromPauseMenu)
+            {
+                PlaySoundEffect(_menuSelect, _soundEffectsAudible);
+                _winningFont = Content.Load<SpriteFont>("winningFont");
+                RemoveInstructions();
+                RedrawElements();
+                PauseGame();
+            }
         }
 
         private void RemoveInstructions()
@@ -641,7 +729,6 @@ namespace Pong
             _menuLine3 = "Start Two Player Game";
             _menuLine4 = "Instructions";
             _menuLine5 = "Exit";
-            Initialize();
         }
 
         private void MoveLeftPaddleForComputerPlayer(GameTime gameTime)
@@ -651,6 +738,53 @@ namespace Pong
                 double ratioOfComputerPaddleSpeedToBallSpeed = 0.7; // This affects how accurate the computer player will be.
                 _leftPaddle._paddlePosition.Y += (float)(_ball._ballDirection.Y * ratioOfComputerPaddleSpeedToBallSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds);
             }
+        }
+
+        private void FadeOutBackgroundMusic()
+        {
+            while (MediaPlayer.Volume > 0)
+            {
+                MediaPlayer.Volume -= 0.0005f;
+            }
+            MediaPlayer.Pause();
+        }
+
+        private void FadeInBackgroundMusic()
+        {
+            MediaPlayer.Resume();
+            while (MediaPlayer.Volume < 0.6 && _musicOn)
+            {
+                MediaPlayer.Volume += 0.0005f;
+            }
+        }
+
+        private void PauseGame()
+        {
+            if (_currentScreen != Screen.instructionsFromPauseMenu)
+            {
+                _previousScreen = _currentScreen;
+            }
+            _ball.Enabled = false;
+            _currentScreen = Screen.pauseMenu;
+            _winningMessage = "";
+            _menuLine1 = "PAUSED";
+            _menuLine2 = "";
+            _menuLine3 = "Resume Game";
+            _menuLine1Position.X = GraphicsDevice.Viewport.Width / 2 - 55;
+            _menuLine3Position.X = GraphicsDevice.Viewport.Width/2 - 103;
+            _optionSelected = 2;
+        }
+
+        private void RemovePauseMenu()
+        {
+            _menuLine1 = "Please select an option:";
+            _menuLine2 = "Start One Player Game";
+            _menuLine3 = "Start Two Player Game";
+            _menuLine1Position.X = GraphicsDevice.Viewport.Width / 2 - 160;
+            _menuLine3Position.X = GraphicsDevice.Viewport.Width / 2 - 160;
+            _ball.Enabled = true;
+            _currentScreen = _previousScreen;
+            _optionSelected = 1;
         }
     }
 }

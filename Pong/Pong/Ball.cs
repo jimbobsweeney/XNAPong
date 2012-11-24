@@ -88,7 +88,7 @@ namespace Pong
         {
             // TODO: Add your drawing code here
             _spriteBatch.Begin();
-            _spriteBatch.Draw(_ballSprite, _ballPosition, Color.Transparent); // DArk Green
+            _spriteBatch.Draw(_ballSprite, _ballPosition, Color.Transparent);
             _spriteBatch.End();
 
             base.Draw(gameTime);
