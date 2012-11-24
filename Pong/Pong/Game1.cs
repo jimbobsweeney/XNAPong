@@ -74,6 +74,8 @@ namespace Pong
         // Particle effect object to store the info about particle
         private ParticleEffect _blueSunEffect;
         private ParticleEffect _pinkSunEffect;
+        private ParticleEffect _backgroundEffect;
+        private ParticleEffect _trailEffect;
 
         private enum Screen
         {
@@ -97,6 +99,8 @@ namespace Pong
 
             _blueSunEffect = new ParticleEffect();
             _pinkSunEffect = new ParticleEffect();
+            _backgroundEffect = new ParticleEffect();
+            _trailEffect = new ParticleEffect();
 
             _ball = new Ball(this);
             _leftPaddle = new Paddle(this, "left");
@@ -115,13 +119,12 @@ namespace Pong
         /// </summary>
         protected override void Initialize()
         {
-            // TODO: Add your initialization logic here
             _currentScreen = Screen.initialMenu;
             _ball.Enabled = false;
             _leftScorePosition = new Vector2(GraphicsDevice.Viewport.Width/2 - 100, -10);
             _rightScorePosition = new Vector2(GraphicsDevice.Viewport.Width/2 + 50, -10);
             _countInPosition = new Vector2(GraphicsDevice.Viewport.Width/2 - 60, GraphicsDevice.Viewport.Height/2 - 200);
-            _winningPosition = new Vector2(GraphicsDevice.Viewport.Width/2 - 160, GraphicsDevice.Viewport.Height/2 - 100);
+            _winningPosition = new Vector2(GraphicsDevice.Viewport.Width/2 - 180, GraphicsDevice.Viewport.Height/2 - 100);
             _menuLine1Position = new Vector2(GraphicsDevice.Viewport.Width/2 - 160,
                                              GraphicsDevice.Viewport.Height/2 - 40);
             _menuLine2Position = new Vector2(GraphicsDevice.Viewport.Width/2 - 160,
@@ -167,6 +170,14 @@ namespace Pong
             _pinkSunEffect = Content.Load<ParticleEffect>("Sun");
             _pinkSunEffect.LoadContent(Content);
             _pinkSunEffect.Initialise();
+
+            _backgroundEffect = Content.Load<ParticleEffect>("trail");
+            _backgroundEffect.LoadContent(Content);
+            _backgroundEffect.Initialise();
+
+            _trailEffect = Content.Load<ParticleEffect>("fireball5");
+            _trailEffect.LoadContent(Content);
+            _trailEffect.Initialise();
             
             _myRenderer.LoadContent(Content);
         }
@@ -237,6 +248,7 @@ namespace Pong
                 {
                     _countIn = "";
                     _ball.Enabled = true;
+                    _trailEffect.Trigger(new Vector2(_ball._ballPosition.X + _ball._ballSprite.Width / 2, _ball._ballPosition.Y + _ball._ballSprite.Height / 2));
                 }
             }
             else if (_currentScreen == Screen.endMenu && (_leftScore == _winningScore || _rightScore == _winningScore))
@@ -267,8 +279,16 @@ namespace Pong
 
             // "Deltatime" ie, time since last update call
             float SecondsPassed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            Random random = new Random();
+            int randowWidth = random.Next(0, _graphics.GraphicsDevice.Viewport.Width);
+            int randomHeight = random.Next(0, _graphics.GraphicsDevice.Viewport.Height);
+            
+            _backgroundEffect.Trigger(new Vector2(randowWidth, randomHeight));
             _blueSunEffect.Update(SecondsPassed);
             _pinkSunEffect.Update(SecondsPassed);
+            _backgroundEffect.Update(SecondsPassed);
+            _trailEffect.Update(SecondsPassed);
         }
 
         /// <summary>
@@ -279,7 +299,6 @@ namespace Pong
         {
             GraphicsDevice.Clear(Color.Black);
 
-            // TODO: Add your drawing code here
             _spriteBatch.Begin();
             _spriteBatch.DrawString(_scoreFont, _leftScore.ToString(), _leftScorePosition, Color.Red);
             _spriteBatch.DrawString(_scoreFont, _rightScore.ToString(), _rightScorePosition, Color.Blue);
@@ -293,6 +312,8 @@ namespace Pong
 
             _myRenderer.RenderEffect(_blueSunEffect);
             _myRenderer.RenderEffect(_pinkSunEffect);
+            _myRenderer.RenderEffect(_backgroundEffect);
+            _myRenderer.RenderEffect(_trailEffect);
 
             base.Draw(gameTime);
         }
